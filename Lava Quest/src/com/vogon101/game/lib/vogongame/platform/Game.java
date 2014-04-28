@@ -1,0 +1,402 @@
+package com.vogon101.game.lib.vogongame.platform;
+
+import static org.lwjgl.opengl.GL11.*;
+
+import org.lwjgl.LWJGLException;
+import org.lwjgl.opengl.Display;
+import org.lwjgl.opengl.DisplayMode;
+import org.newdawn.slick.Color;
+import org.newdawn.slick.opengl.Texture;
+
+import com.vogon101.game.lib.vogongame.VogonGameException;
+import com.vogon101.game.lib.vogongame.util.VogonTextureLoader;
+
+/**
+ * <b>The main game class</b>
+ * This class should be init'd before using, THIS IS NOT A STATIC CLASS
+ * To use this class:<br/>
+ * <b>1:</b> Create a class that extends this class<br/>
+ * <b>2:</b> Override the logic method and maybe the render method<br/>
+ * Remember to set the level and player as well as the screen size
+ * @author Freddie Poser
+ *
+ */
+public class Game {
+
+	
+	
+	
+	
+	public boolean gameEnd = false;
+	protected Texture loseOne = null, bad, nbad, pro,scores;
+	
+	
+	protected Level level = null;
+	protected Player player = null;
+	protected int WIDTH, HEIGHT, floor, levelnum = 1;
+	protected String title = "LavaQuest";
+	public boolean debug;
+	
+	public Game() {
+	}
+	
+	/**
+	 * Called when the window is closed by the user
+	 */
+	public void onClose() {
+	}
+	
+	/**
+	 * Set the player to render/use
+	 * @param player  - The player object
+	 */
+	public void setPlayer(Player player) {
+		this.player = player;
+	}
+	
+	/**
+	 * Set the level, should be called each time the level changes
+	 * @param lvl  -The level object
+	 */
+	public void setLevel(Level lvl) {
+		level = lvl;
+	}
+	
+	/**
+	 * Set the screen size, CALL ONLY ONCE
+	 * @param w - width
+	 * @param h - height
+	 */
+	public void setDimen (int w, int h) {
+		WIDTH = w;
+		HEIGHT = h;
+	}
+	
+
+	protected void mainloop() {
+	
+		while (!Display.isCloseRequested()) {
+				logic();
+				render();
+			Display.update();
+		}
+		
+		onClose();
+		Display.destroy();
+		System.exit(0);
+		
+	}
+	
+	/**
+	 * Start the game mainloop
+	 * @throws VogonGameException
+	 */
+	public void start() throws VogonGameException {
+		if (level == null) {
+			throw new VogonGameException("The starting level is null");
+		}
+		else if (player == null) {
+			throw new VogonGameException("The player is null");
+		}
+		try {
+			initGl();
+		} catch (LWJGLException e) {
+			throw new VogonGameException("The window could not be created; ERROR: " + e.getMessage());
+		}
+		
+		
+		mainloop();
+		
+	}
+	
+	/**
+	 * Returns the level object for reference and other such
+	 * @return
+	 */
+	public Level getLevel() {
+		return level;
+	}
+	
+	/**
+	 * Returns the player object for reference and other such
+	 * @return
+	 */
+	public Player getPlayer() {
+		return player;
+	}
+	
+	/** 
+	 * Loops all the logics
+	 */
+	private void logic() {
+		for (Mob mob : level.getMobs()) {
+			mob.logic();
+		}
+		
+		for (Platform plat : level.getPlatforms()) {
+			plat.logic();
+		}
+		for (Coin coin : level.getCoins()) {
+			coin.logic();
+		}
+		for (Pickup pick : level.getPickups()) {
+			pick.logic();
+		}
+		for (LavaParticle lava : level.getLava()) {
+			lava.logic();
+		}
+		for (Stalactite stal : level.getStalactites()) {
+			stal.logic();
+		}
+		player.logic();
+		addLogic();
+		playMusic();
+	}
+	/**
+	 * Override this method to update additional things,
+	 * this is called when {@link logic()} runs
+	 * 
+	 * override this if you need to add additional objects to update that are not
+	 * contained in the {@link Player.logic()}or the updating of all the
+	 * mobs/platforms in the level
+	 */
+	public void addLogic() {
+		
+	}
+	
+	private void render() {
+		setCamera();
+		if (!gameEnd) {
+			
+			drawBG();
+			for (Mob mob : level.getMobs()) {
+				mob.draw();
+			}
+			
+			for (Platform plat : level.getPlatforms()) {
+				plat.draw();
+			}
+			for (Coin coin : level.getCoins()) {
+				coin.draw();
+			}
+			for (Wall wall : level.getWalls()) {
+				wall.draw();
+			}
+			for (Pickup pick : level.getPickups()) {
+				pick.draw();
+			}
+			for (LavaParticle lava : level.getLava()) {
+				lava.draw();
+			}
+			for (Stalactite stal : level.getStalactites()) {
+				stal.draw();
+			}
+			
+			player.draw();
+			
+			addRender();
+		}
+		else {
+			drawLose();
+		}
+		
+		Display.sync(120);
+	}
+	
+	/**
+	 * DO NOT OVERRIDE
+	 * 
+	 */
+	private void setCamera() {
+		glClearColor(1f, 1f, 1f, 1.0f);
+		// Clear
+		glClear(GL_COLOR_BUFFER_BIT);
+		// Modify projection matrix - 2d projection
+		glMatrixMode(GL_PROJECTION);
+		glLoadIdentity();
+		glOrtho(0, WIDTH, 0, HEIGHT, -1, 1);
+
+		// Modify modelview matrix
+		glMatrixMode(GL_MODELVIEW);
+		glLoadIdentity();
+		/*
+		GL11.glViewport(0,0,WIDTH,HEIGHT);
+		GL11.glMatrixMode(GL11.GL_MODELVIEW);
+ 
+		GL11.glMatrixMode(GL11.GL_PROJECTION);
+		GL11.glLoadIdentity();
+		GL11.glOrtho(0, WIDTH, 0, HEIGHT, -1, 1);
+		GL11.glMatrixMode(GL11.GL_MODELVIEW);
+		*/
+	}
+	
+	public void drawLose() {
+		
+		glBegin(GL_QUADS);
+		{
+			glColor3d(1, 0, 0);
+			glVertex2d(0, 0);
+			glVertex2d(WIDTH, 0);
+			glVertex2d(WIDTH, HEIGHT);
+			glVertex2d(0, HEIGHT);
+		}
+		glEnd();
+		
+		glPushMatrix();
+		glTranslated(0, 400, 0);
+		
+		glBindTexture(GL_TEXTURE_2D, loseOne.getTextureID());
+		glEnable(GL_TEXTURE_2D);
+		glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		Color.white.bind();
+		glBegin(GL_QUADS);
+		{
+			glTranslated(0, 900, 0);
+			glTexCoord2d(0,0);
+			glVertex2d(0, 300);
+			glTexCoord2d(1,0);
+			glVertex2d(WIDTH, 300);
+			glTexCoord2d(1,1);
+			glVertex2d(WIDTH, 0);
+			glTexCoord2d(0,1);
+			glVertex2d(0, 0);
+			
+		}
+		glEnd();
+		glDisable(GL_TEXTURE_2D);
+		glDisable(GL_BLEND);
+		
+		glPopMatrix();
+		
+		glPushMatrix();
+		glTranslated(200, 100, 0);
+		
+		if (player.score < 100)
+			glBindTexture(GL_TEXTURE_2D, bad.getTextureID());
+		else if (player.score <300)
+			glBindTexture(GL_TEXTURE_2D, nbad.getTextureID());
+		else
+			glBindTexture(GL_TEXTURE_2D, pro.getTextureID());
+		glEnable(GL_TEXTURE_2D);
+		glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		Color.white.bind();
+		glBegin(GL_QUADS);
+		{
+			glTexCoord2d(0,0);
+			glVertex2d(0, 75);
+			glTexCoord2d(1,0);
+			glVertex2d(600, 75);
+			glTexCoord2d(1,1);
+			glVertex2d(600, 0);
+			glTexCoord2d(0,1);
+			glVertex2d(0, 0);
+			
+		}
+		glEnd();
+		glDisable(GL_TEXTURE_2D);
+		glDisable(GL_BLEND);
+		
+		glPopMatrix();
+		
+		glPushMatrix();
+		glTranslated(800, 100, 0);
+		glBindTexture(GL_TEXTURE_2D, scores.getTextureID());
+		glEnable(GL_TEXTURE_2D);
+		glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		Color.white.bind();
+		glBegin(GL_QUADS);
+		{
+			glTexCoord2d(0,0);
+			glVertex2d(0, 256);
+			glTexCoord2d(1,0);
+			glVertex2d(512, 256);
+			glTexCoord2d(1,1);
+			glVertex2d(512, 0);
+			glTexCoord2d(0,1);
+			glVertex2d(0, 0);
+			
+		}
+		glEnd();
+		glDisable(GL_TEXTURE_2D);
+		glDisable(GL_BLEND);
+		
+		glPopMatrix();
+		
+	}
+	
+	/**
+	 * Override this method to render additional things,
+	 * this is called when {@link render()} runs
+	 * 
+	 * Override this if you need to add additional objects to render that are not
+	 * contained in the {@link Player.draw()}or the rendering of all the
+	 * mobs/platforms/coins in the level
+	 */
+	public void addRender() {
+		
+	}
+	
+	/**
+	 * DO NOT OVERRIDE
+	 * @throws LWJGLException
+	 */
+	protected void initGl() throws LWJGLException{
+		Display.setDisplayMode(new DisplayMode(WIDTH, HEIGHT));
+		Display.create();
+		Display.setTitle(title);
+		try {
+			loseOne = VogonTextureLoader.loadTexture("res/textures/lose.png");
+			bad = VogonTextureLoader.loadTexture("res/textures/badminer.png");
+			nbad = VogonTextureLoader.loadTexture("res/textures/notbadminer.png");
+			pro = VogonTextureLoader.loadTexture("res/textures/prominer.png");
+			scores = VogonTextureLoader.loadTexture("res/textures/scores.png");
+		} catch (VogonGameException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public int getWidth(){
+		return WIDTH;
+	}
+	
+	public int getHeight(){
+		return HEIGHT;
+	}
+	
+	/**
+	 * Render the Background
+	 */
+	public void drawBG() {
+		
+		/*
+		 * For a quad the coords are:
+		 * vertex 1 = 0, 0
+		 * vertex 2 = width, 0
+		 * vertex 3 = width, height
+		 * vertex 4 = 0, height
+		 */
+		
+		glBegin(GL_QUADS);
+		{
+			glColor3d(1, 1, 0);
+			glVertex2d(0, 0);
+			glVertex2d(WIDTH, 0);
+			glVertex2d(WIDTH, HEIGHT);
+			glVertex2d(0, HEIGHT);
+		}
+		glEnd();
+	}
+	
+	public void levelWin (){
+		player.reset();
+		levelnum++;
+		level.gen(levelnum);
+		for (Pickup pick : level.pickups) {
+			pick.level = level;
+		}
+	}
+	
+	public void playMusic() {
+		
+	}
+}
